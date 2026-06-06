@@ -1,4 +1,6 @@
 .codex/
+.windsurf/
+AGENTS.md
 .build/
 LocalAssets/
 build-assets/

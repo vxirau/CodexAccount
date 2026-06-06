@@ -95,9 +95,14 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         subtitle.font = .systemFont(ofSize: 11)
         subtitle.textColor = .secondaryLabelColor
 
+        let configProfile = NSTextField(labelWithString: "Profile: \(store.activeCodexConfigProfileName ?? "Default")")
+        configProfile.font = .systemFont(ofSize: 10)
+        configProfile.textColor = .tertiaryLabelColor
+
         view.addArrangedSubview(title)
         view.addArrangedSubview(subtitle)
-        view.setFrameSize(NSSize(width: 304, height: 48))
+        view.addArrangedSubview(configProfile)
+        view.setFrameSize(NSSize(width: 304, height: 62))
         item.view = view
         return item
     }

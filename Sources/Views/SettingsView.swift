@@ -32,6 +32,13 @@ struct SettingsView: View {
             Form {
                 Section("Active Codex Account") {
                     LabeledContent("Account ID", value: store.activeSummary.displayName)
+                    LabeledContent("Codex config profile", value: store.activeCodexConfigProfileName ?? "Default")
+                    LabeledContent("Credential store", value: store.authCredentialStore)
+                    if store.authCredentialStore != "file" {
+                        Text("CodexAccount switches file-backed auth snapshots. Keyring-backed Codex credentials cannot be copied by this app.")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                     LabeledContent("Auth file", value: store.authURL.path)
                     Toggle("Quit Codex Desktop before switching", isOn: $store.quitCodexBeforeSwitching)
                 }
@@ -71,6 +78,22 @@ struct SettingsView: View {
                         .padding(.vertical, 4)
 
                         LabeledContent("Account ID", value: selectedProfile.shortAccountID)
+                        Picker(
+                            "Codex config profile",
+                            selection: codexConfigProfileBinding(for: selectedProfile)
+                        ) {
+                            Text("Default").tag(String?.none)
+                            ForEach(codexConfigProfileOptions(for: selectedProfile), id: \.self) { profileName in
+                                if store.availableCodexConfigProfileNames.contains(profileName) {
+                                    Text(profileName).tag(String?.some(profileName))
+                                } else {
+                                    Text("\(profileName) (missing)").tag(String?.some(profileName))
+                                }
+                            }
+                        }
+                        Text("Codex CLI/Desktop now uses named config profiles from ~/.codex/config.toml. This account will restore the selected profile when switched.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         LabeledContent("Captured", value: selectedProfile.capturedAt.formatted(date: .abbreviated, time: .shortened))
 
                         HStack {
@@ -158,6 +181,26 @@ struct SettingsView: View {
 
     private func moveProfiles(from source: IndexSet, to destination: Int) {
         store.moveProfiles(from: source, to: destination)
+    }
+
+    private func codexConfigProfileBinding(for profile: AccountProfile) -> Binding<String?> {
+        Binding(
+            get: {
+                store.profiles.first { $0.id == profile.id }?.codexConfigProfileName
+            },
+            set: { newValue in
+                store.updateCodexConfigProfile(for: profile, configProfileName: newValue)
+            }
+        )
+    }
+
+    private func codexConfigProfileOptions(for profile: AccountProfile) -> [String] {
+        var options = store.availableCodexConfigProfileNames
+        if let selected = profile.codexConfigProfileName, !options.contains(selected) {
+            options.append(selected)
+        }
+
+        return options
     }
 }
 

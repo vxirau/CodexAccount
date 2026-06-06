@@ -8,6 +8,9 @@ final class AccountProfileStore: ObservableObject {
 
     @Published private(set) var profiles: [AccountProfile] = []
     @Published private(set) var activeSummary = AuthSummary(accountID: nil, accountEmail: nil, lastRefresh: nil)
+    @Published private(set) var activeCodexConfigProfileName: String?
+    @Published private(set) var availableCodexConfigProfileNames: [String] = []
+    @Published private(set) var authCredentialStore = "file"
     @Published private(set) var statusMessage = ""
     @Published var draftProfileName = ""
     @Published var quitCodexBeforeSwitching = true {
@@ -43,6 +46,10 @@ final class AccountProfileStore: ObservableObject {
         codexHomeURL.appendingPathComponent("auth.json", isDirectory: false)
     }
 
+    var configURL: URL {
+        codexHomeURL.appendingPathComponent("config.toml", isDirectory: false)
+    }
+
     var supportURL: URL {
         fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("CodexAccount", isDirectory: true)
@@ -74,6 +81,7 @@ final class AccountProfileStore: ObservableObject {
             try ensureStorage()
             profiles = try loadProfiles()
             activeSummary = try readActiveSummary()
+            refreshCodexConfigSummary()
             statusMessage = "Ready"
         } catch {
             statusMessage = error.localizedDescription
@@ -102,6 +110,7 @@ final class AccountProfileStore: ObservableObject {
                 name: trimmedName,
                 accountID: summary.accountID,
                 accountEmail: summary.accountEmail,
+                codexConfigProfileName: activeCodexConfigProfileName,
                 avatarGradientIndex: profiles.count,
                 sortOrder: profiles.count,
                 capturedAt: Date(),
@@ -133,11 +142,14 @@ final class AccountProfileStore: ObservableObject {
                 throw SwitcherError.missingProfileFile(profile.name)
             }
 
-            _ = try backupCurrentAuth(reason: "pre-switch-\(safeFileComponent(profile.name))")
+            let backupReason = "pre-switch-\(safeFileComponent(profile.name))"
+            try applyCodexConfigProfile(profile.codexConfigProfileName, reason: backupReason)
+            _ = try backupCurrentAuth(reason: backupReason)
             try replaceAuthFile(with: source)
             activeSummary = try readActiveSummary()
+            refreshCodexConfigSummary()
             CodexBarController.refreshUsageStatus()
-            statusMessage = "Switched to \(profile.name). CodexBar refresh started."
+            statusMessage = "Switched to \(profile.name). Codex profile: \(profile.codexConfigProfileName ?? "Default"). CodexBar refresh started."
             if quitCodexBeforeSwitching {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                     CodexDesktopController.openCodexDesktop()
@@ -245,6 +257,23 @@ final class AccountProfileStore: ObservableObject {
         }
     }
 
+    func updateCodexConfigProfile(for profile: AccountProfile, configProfileName: String?) {
+        guard let index = profiles.firstIndex(where: { $0.id == profile.id }) else {
+            statusMessage = "Profile not found."
+            return
+        }
+
+        profiles[index].codexConfigProfileName = configProfileName
+
+        do {
+            try saveProfiles()
+            notifyProfilesDidChange()
+            statusMessage = "Updated Codex config profile for \(profiles[index].name)."
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
     func avatarURL(for profile: AccountProfile) -> URL? {
         guard let avatarFileName = profile.avatarFileName, !avatarFileName.isEmpty else {
             return nil
@@ -269,7 +298,12 @@ final class AccountProfileStore: ObservableObject {
     func backupNow() {
         do {
             let backup = try backupCurrentAuth(reason: "manual")
-            statusMessage = "Backup saved: \(backup.lastPathComponent)"
+            let configBackup = try backupCurrentConfig(reason: "manual")
+            if let configBackup {
+                statusMessage = "Backups saved: \(backup.lastPathComponent), \(configBackup.lastPathComponent)"
+            } else {
+                statusMessage = "Backup saved: \(backup.lastPathComponent)"
+            }
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -293,6 +327,14 @@ final class AccountProfileStore: ObservableObject {
         }
 
         return try AuthFileInspector.readSummary(from: authURL)
+    }
+
+    private func refreshCodexConfigSummary() {
+        let summary = (try? CodexConfigProfileManager.readSummary(from: configURL))
+            ?? CodexConfigProfileManager.Summary(activeProfileName: nil, availableProfileNames: [], credentialStore: nil)
+        activeCodexConfigProfileName = summary.activeProfileName
+        availableCodexConfigProfileNames = summary.availableProfileNames
+        authCredentialStore = summary.credentialStore ?? "file"
     }
 
     private func loadProfiles() throws -> [AccountProfile] {
@@ -389,6 +431,32 @@ final class AccountProfileStore: ObservableObject {
         return destination
     }
 
+    private func backupCurrentConfig(reason: String) throws -> URL? {
+        try ensureStorage()
+        guard fileManager.fileExists(atPath: configURL.path) else {
+            return nil
+        }
+
+        let stamp = Self.backupDateFormatter.string(from: Date())
+        let fileName = "\(stamp)-\(reason)-config.toml"
+        let destination = backupsURL.appendingPathComponent(fileName, isDirectory: false)
+        try fileManager.copyItem(at: configURL, to: destination)
+        return destination
+    }
+
+    private func applyCodexConfigProfile(_ profileName: String?, reason: String) throws {
+        let currentSummary = try CodexConfigProfileManager.readSummary(from: configURL)
+        if let profileName, !currentSummary.availableProfileNames.contains(profileName) {
+            throw SwitcherError.missingCodexConfigProfile(profileName)
+        }
+        guard currentSummary.activeProfileName != profileName else {
+            return
+        }
+
+        _ = try backupCurrentConfig(reason: reason)
+        try CodexConfigProfileManager.setActiveProfile(profileName, in: configURL)
+    }
+
     private func replaceAuthFile(with source: URL) throws {
         try fileManager.createDirectory(at: codexHomeURL, withIntermediateDirectories: true)
         let temporaryURL = codexHomeURL.appendingPathComponent(".auth-switcher-\(UUID().uuidString).json", isDirectory: false)
@@ -418,13 +486,16 @@ final class AccountProfileStore: ObservableObject {
 enum SwitcherError: LocalizedError {
     case missingAuthFile(String)
     case missingProfileFile(String)
+    case missingCodexConfigProfile(String)
 
     var errorDescription: String? {
         switch self {
         case .missingAuthFile(let path):
-            return "No Codex auth file found at \(path). Sign in to Codex first, then capture the account."
+            return "No Codex auth file found at \(path). CodexAccount switches file-backed auth snapshots, so sign in with file-backed Codex auth before capturing the account."
         case .missingProfileFile(let name):
             return "The saved auth snapshot for \(name) is missing."
+        case .missingCodexConfigProfile(let name):
+            return "The Codex config profile \"\(name)\" no longer exists in ~/.codex/config.toml."
         }
     }
 }

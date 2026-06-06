@@ -10,19 +10,24 @@ CodexAccount is a simple quick utility for switching between Codex Desktop
 accounts from the menu bar. Capture each signed-in account once, then switch
 between them without deleting projects, local chats, or Codex Desktop settings.
 
-It is intentionally narrow: CodexAccount only swaps Codex authentication
-snapshots. Your Codex history and workspace state stay where Codex already keeps
-them.
+It is intentionally narrow: CodexAccount swaps file-backed Codex authentication
+snapshots and restores the selected Codex config profile from
+`~/.codex/config.toml`. Your Codex history and workspace state stay where Codex
+already keeps them.
 
 ## Why
 
 - **One-click account switching.** Pick any saved profile directly from the
   menu bar.
-- **Preserves local Codex state.** The app only replaces `~/.codex/auth.json`.
-  It does not touch `~/.codex/state_*.sqlite`, `~/.codex/sessions`, local logs,
-  workspace metadata, or Codex Desktop settings.
-- **Recovery first.** Every switch creates a timestamped backup of the currently
-  active auth file before replacing it.
+- **Codex profile aware.** Codex now supports named config profiles via
+  `[profiles.<name>]` in `~/.codex/config.toml`. Each saved account can restore
+  one of those profiles, or the default config.
+- **Preserves local Codex state.** The app only replaces `~/.codex/auth.json`
+  and the top-level `profile = "..."` selector in `~/.codex/config.toml`.
+  It does not touch `~/.codex/state_*.sqlite`, local sessions, logs, memories,
+  plugins, workspace metadata, or other Codex Desktop settings.
+- **Recovery first.** Every switch creates timestamped backups before replacing
+  auth or changing the selected Codex config profile.
 - **Codex Desktop friendly.** By default, Codex Desktop is quit before the auth
   file changes, then reopened after the switch.
 - **CodexBar aware.** If CodexBar is installed, CodexAccount refreshes Codex
@@ -52,7 +57,9 @@ Requirements:
 ```sh
 git clone <your-fork-or-clone-url>
 cd CodexAccount
-python3 -m pip install --user Pillow
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install Pillow
 ./script/build_and_run.sh --package
 open dist/CodexAccount.app
 ```
@@ -75,8 +82,9 @@ open /Applications/CodexAccount.app
 7. Switch later by clicking the CodexAccount menu bar icon and selecting the
    target profile.
 
-During a switch, CodexAccount backs up the active auth file, swaps in the saved
-profile, refreshes CodexBar usage when available, and reopens Codex Desktop.
+During a switch, CodexAccount backs up the active auth file, restores the saved
+auth snapshot, applies the associated Codex config profile when one is selected,
+refreshes CodexBar usage when available, and reopens Codex Desktop.
 
 ## What It Stores
 
@@ -96,6 +104,20 @@ Only that active auth file is replaced during account switching. Profile
 snapshots are copies of `auth.json`, so treat them like credentials and keep the
 Application Support folder private.
 
+Codex config profiles are read from:
+
+```text
+~/.codex/config.toml
+```
+
+CodexAccount only changes the top-level `profile = "..."` selector and backs up
+`config.toml` first. It does not rewrite individual `[profiles.*]` definitions.
+
+If your Codex setup uses `cli_auth_credentials_store = "keyring"`, Codex stores
+credentials in macOS Keychain instead of `auth.json`. CodexAccount intentionally
+does not copy or mutate Keychain credentials; use file-backed auth for account
+switching.
+
 ## Privacy And Safety
 
 CodexAccount is local-only. It does not send account files to a server, sync
@@ -104,6 +126,9 @@ profiles, or read arbitrary project directories.
 The app does:
 
 - Read and copy `~/.codex/auth.json`.
+- Read `~/.codex/config.toml` for named Codex config profiles.
+- Backup `~/.codex/config.toml` and update only the top-level `profile`
+  selector when switching.
 - Write saved auth snapshots and backups under Application Support.
 - Quit and reopen Codex Desktop during switches when that setting is enabled.
 - Run `codexbar usage --provider codex --source oauth --format json` after a
@@ -113,6 +138,8 @@ The app does not:
 
 - Modify Codex Desktop history databases.
 - Delete local sessions, project metadata, or logs.
+- Modify Codex memories, plugins, MCP settings, or profile definitions.
+- Read or write macOS Keychain credentials.
 - Store OpenAI passwords.
 - Require Accessibility, Screen Recording, or Full Disk Access permissions.
 
@@ -164,8 +191,8 @@ Generated assets and bundles are intentionally ignored:
 GitHub Actions builds the app on tag pushes matching `v*`.
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 The workflow packages `dist/CodexAccount.app` as `CodexAccount.app.zip` and

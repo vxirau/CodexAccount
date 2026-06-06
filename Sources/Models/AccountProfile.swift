@@ -5,6 +5,7 @@ struct AccountProfile: Codable, Identifiable, Equatable {
     var name: String
     var accountID: String?
     var accountEmail: String?
+    var codexConfigProfileName: String?
     var avatarFileName: String?
     var avatarInitials: String?
     var avatarGradientIndex: Int
@@ -17,6 +18,7 @@ struct AccountProfile: Codable, Identifiable, Equatable {
         name: String,
         accountID: String?,
         accountEmail: String?,
+        codexConfigProfileName: String? = nil,
         avatarFileName: String? = nil,
         avatarInitials: String? = nil,
         avatarGradientIndex: Int = 0,
@@ -28,6 +30,7 @@ struct AccountProfile: Codable, Identifiable, Equatable {
         self.name = name
         self.accountID = accountID
         self.accountEmail = accountEmail
+        self.codexConfigProfileName = codexConfigProfileName
         self.avatarFileName = avatarFileName
         self.avatarInitials = avatarInitials
         self.avatarGradientIndex = avatarGradientIndex
@@ -41,6 +44,7 @@ struct AccountProfile: Codable, Identifiable, Equatable {
         case name
         case accountID
         case accountEmail
+        case codexConfigProfileName
         case avatarFileName
         case avatarInitials
         case avatarGradientIndex
@@ -55,6 +59,7 @@ struct AccountProfile: Codable, Identifiable, Equatable {
         name = try container.decode(String.self, forKey: .name)
         accountID = try container.decodeIfPresent(String.self, forKey: .accountID)
         accountEmail = try container.decodeIfPresent(String.self, forKey: .accountEmail)
+        codexConfigProfileName = try container.decodeIfPresent(String.self, forKey: .codexConfigProfileName)
         avatarFileName = try container.decodeIfPresent(String.self, forKey: .avatarFileName)
         avatarInitials = try container.decodeIfPresent(String.self, forKey: .avatarInitials)
         avatarGradientIndex = try container.decodeIfPresent(Int.self, forKey: .avatarGradientIndex) ?? 0
