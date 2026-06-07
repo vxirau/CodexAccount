@@ -77,6 +77,8 @@ open /Applications/CodexAccount.app
 2. Open CodexAccount from the menu bar and choose `Manage Accounts...`.
 3. Capture the current account with a clear name, for example `Personal`.
 4. Use `Sign Out + Open Login` if Codex Desktop does not expose a logout button.
+   CodexAccount runs `codex logout` first, then falls back to removing the
+   file-backed auth snapshot if needed.
 5. Sign in to Codex Desktop with the second account.
 6. Capture it as another profile, for example `Enterprise`.
 7. Switch later by clicking the CodexAccount menu bar icon and selecting the
@@ -131,6 +133,8 @@ The app does:
   selector when switching.
 - Write saved auth snapshots and backups under Application Support.
 - Quit and reopen Codex Desktop during switches when that setting is enabled.
+- Run `codex logout` during the explicit sign-out flow so Codex can clear its
+  configured credential backend.
 - Run `codexbar usage --provider codex --source oauth --format json` after a
   switch when CodexBar is installed.
 
@@ -191,8 +195,8 @@ Generated assets and bundles are intentionally ignored:
 GitHub Actions builds the app on tag pushes matching `v*`.
 
 ```sh
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.2.1
+git push origin v0.2.1
 ```
 
 The workflow packages `dist/CodexAccount.app` as `CodexAccount.app.zip` and

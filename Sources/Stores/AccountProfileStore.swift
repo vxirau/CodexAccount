@@ -169,18 +169,34 @@ final class AccountProfileStore: ObservableObject {
         return profileAccountID == activeAccountID
     }
 
+    var activeProfile: AccountProfile? {
+        profiles.first { isActive($0) }
+    }
+
     func signOutAndOpenLogin() {
         do {
             try ensureStorage()
 
             CodexDesktopController.quitCodexDesktop()
 
+            var backupName: String?
             if fileManager.fileExists(atPath: authURL.path) {
                 let backup = try backupCurrentAuth(reason: "signed-out")
+                backupName = backup.lastPathComponent
+            }
+
+            let logoutResult = CodexCLIController.logout()
+            if fileManager.fileExists(atPath: authURL.path) {
                 try fileManager.removeItem(at: authURL)
-                statusMessage = "Signed out. Backup saved: \(backup.lastPathComponent)"
+            }
+
+            if logoutResult.succeeded {
+                statusMessage = backupName.map { "Signed out with codex logout. Backup saved: \($0)" }
+                    ?? "Signed out with codex logout."
             } else {
-                statusMessage = "Already signed out."
+                let detail = logoutResult.output.trimmingCharacters(in: .whitespacesAndNewlines)
+                statusMessage = backupName.map { "Removed auth file after codex logout failed. Backup saved: \($0). \(detail)" }
+                    ?? "codex logout failed and no auth file was present. \(detail)"
             }
 
             activeSummary = AuthSummary(accountID: nil, accountEmail: nil, lastRefresh: nil)

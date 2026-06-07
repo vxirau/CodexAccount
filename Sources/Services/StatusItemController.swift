@@ -18,6 +18,7 @@ final class StatusItemController: NSObject, NSWindowDelegate {
 
     func rebuildMenu() {
         store.refresh()
+        updateStatusButtonIcon()
 
         let menu = NSMenu()
         menu.autoenablesItems = false
@@ -48,14 +49,27 @@ final class StatusItemController: NSObject, NSWindowDelegate {
         }
 
         button.toolTip = "Codex Account"
+        button.imagePosition = .imageOnly
+        button.title = ""
+        updateStatusButtonIcon()
+    }
+
+    private func updateStatusButtonIcon() {
+        guard let button = statusItem.button else {
+            return
+        }
+
+        if let activeProfile = store.activeProfile {
+            let image = avatarImage(for: activeProfile, size: NSSize(width: 18, height: 18))
+            image.isTemplate = false
+            button.image = image
+            return
+        }
 
         if let image = croppedImage(named: "menuBar", size: NSSize(width: 16, height: 16)) {
             image.isTemplate = false
             button.image = image
-            button.imagePosition = .imageOnly
-            button.title = ""
         } else {
-            button.title = ""
             button.image = NSImage(systemSymbolName: "person.crop.circle.badge.arrow.forward", accessibilityDescription: "CodexAccount")
         }
     }
@@ -83,10 +97,25 @@ final class StatusItemController: NSObject, NSWindowDelegate {
     private func headerItem() -> NSMenuItem {
         let item = NSMenuItem()
         let view = NSStackView()
-        view.orientation = .vertical
-        view.alignment = .leading
-        view.spacing = 3
-        view.edgeInsets = NSEdgeInsets(top: 9, left: 12, bottom: 8, right: 12)
+        view.orientation = .horizontal
+        view.alignment = .centerY
+        view.spacing = 12
+        view.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
+
+        let headerAvatar = store.activeProfile.map { avatarImage(for: $0, size: NSSize(width: 30, height: 30)) }
+            ?? croppedImage(named: "menuBar", size: NSSize(width: 30, height: 30))
+            ?? NSImage(systemSymbolName: "person.crop.circle", accessibilityDescription: "CodexAccount")
+            ?? NSImage()
+        let avatarView = NSImageView(image: headerAvatar)
+        avatarView.imageScaling = .scaleProportionallyUpOrDown
+        avatarView.translatesAutoresizingMaskIntoConstraints = false
+        avatarView.widthAnchor.constraint(equalToConstant: 30).isActive = true
+        avatarView.heightAnchor.constraint(equalToConstant: 30).isActive = true
+
+        let textStack = NSStackView()
+        textStack.orientation = .vertical
+        textStack.alignment = .leading
+        textStack.spacing = 3
 
         let title = NSTextField(labelWithString: "CodexAccount")
         title.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -97,12 +126,14 @@ final class StatusItemController: NSObject, NSWindowDelegate {
 
         let configProfile = NSTextField(labelWithString: "Profile: \(store.activeCodexConfigProfileName ?? "Default")")
         configProfile.font = .systemFont(ofSize: 10)
-        configProfile.textColor = .tertiaryLabelColor
+        configProfile.textColor = .secondaryLabelColor
 
-        view.addArrangedSubview(title)
-        view.addArrangedSubview(subtitle)
-        view.addArrangedSubview(configProfile)
-        view.setFrameSize(NSSize(width: 304, height: 62))
+        textStack.addArrangedSubview(title)
+        textStack.addArrangedSubview(subtitle)
+        textStack.addArrangedSubview(configProfile)
+        view.addArrangedSubview(avatarView)
+        view.addArrangedSubview(textStack)
+        view.setFrameSize(NSSize(width: 330, height: 82))
         item.view = view
         return item
     }
