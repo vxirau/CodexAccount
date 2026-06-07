@@ -55,7 +55,7 @@ struct SettingsView: View {
                             store.refresh()
                         }
 
-                        Button("Sign Out + Open Login") {
+                        Button("Prepare Login") {
                             store.signOutAndOpenLogin()
                         }
                     }

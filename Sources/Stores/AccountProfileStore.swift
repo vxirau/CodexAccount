@@ -110,6 +110,8 @@ final class AccountProfileStore: ObservableObject {
                 name: trimmedName,
                 accountID: summary.accountID,
                 accountEmail: summary.accountEmail,
+                accountName: summary.accountName,
+                codexProfileImageURL: summary.profileImageURL,
                 codexConfigProfileName: activeCodexConfigProfileName,
                 avatarGradientIndex: profiles.count,
                 sortOrder: profiles.count,
@@ -143,6 +145,7 @@ final class AccountProfileStore: ObservableObject {
             }
 
             let backupReason = "pre-switch-\(safeFileComponent(profile.name))"
+            try syncActiveProfileSnapshot(reason: backupReason)
             try applyCodexConfigProfile(profile.codexConfigProfileName, reason: backupReason)
             _ = try backupCurrentAuth(reason: backupReason)
             try replaceAuthFile(with: source)
@@ -181,23 +184,17 @@ final class AccountProfileStore: ObservableObject {
 
             var backupName: String?
             if fileManager.fileExists(atPath: authURL.path) {
+                try syncActiveProfileSnapshot(reason: "pre-login")
                 let backup = try backupCurrentAuth(reason: "signed-out")
                 backupName = backup.lastPathComponent
             }
 
-            let logoutResult = CodexCLIController.logout()
             if fileManager.fileExists(atPath: authURL.path) {
                 try fileManager.removeItem(at: authURL)
             }
 
-            if logoutResult.succeeded {
-                statusMessage = backupName.map { "Signed out with codex logout. Backup saved: \($0)" }
-                    ?? "Signed out with codex logout."
-            } else {
-                let detail = logoutResult.output.trimmingCharacters(in: .whitespacesAndNewlines)
-                statusMessage = backupName.map { "Removed auth file after codex logout failed. Backup saved: \($0). \(detail)" }
-                    ?? "codex logout failed and no auth file was present. \(detail)"
-            }
+            statusMessage = backupName.map { "Prepared Codex for another login. Backup saved: \($0)" }
+                ?? "Prepared Codex for another login."
 
             activeSummary = AuthSummary(accountID: nil, accountEmail: nil, lastRefresh: nil)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
@@ -388,6 +385,14 @@ final class AccountProfileStore: ObservableObject {
                 loadedProfiles[index].accountEmail = summary.accountEmail
                 changed = true
             }
+            if loadedProfiles[index].accountName == nil, summary.accountName != nil {
+                loadedProfiles[index].accountName = summary.accountName
+                changed = true
+            }
+            if loadedProfiles[index].codexProfileImageURL == nil, summary.profileImageURL != nil {
+                loadedProfiles[index].codexProfileImageURL = summary.profileImageURL
+                changed = true
+            }
         }
 
         if changed {
@@ -445,6 +450,33 @@ final class AccountProfileStore: ObservableObject {
         let destination = backupsURL.appendingPathComponent(fileName, isDirectory: false)
         try fileManager.copyItem(at: authURL, to: destination)
         return destination
+    }
+
+    private func syncActiveProfileSnapshot(reason: String) throws {
+        guard fileManager.fileExists(atPath: authURL.path) else {
+            return
+        }
+
+        let summary = try readActiveSummary()
+        guard let activeAccountID = summary.accountID,
+              let index = profiles.firstIndex(where: { $0.accountID == activeAccountID }) else {
+            return
+        }
+
+        let destination = profilesURL.appendingPathComponent(profiles[index].fileName, isDirectory: false)
+        if fileManager.fileExists(atPath: destination.path) {
+            let backupName = "\(Self.backupDateFormatter.string(from: Date()))-\(reason)-profile-\(safeFileComponent(profiles[index].name)).json"
+            let backupURL = backupsURL.appendingPathComponent(backupName, isDirectory: false)
+            try fileManager.copyItem(at: destination, to: backupURL)
+            try fileManager.removeItem(at: destination)
+        }
+
+        try fileManager.copyItem(at: authURL, to: destination)
+        profiles[index].accountEmail = summary.accountEmail
+        profiles[index].accountName = summary.accountName
+        profiles[index].codexProfileImageURL = summary.profileImageURL
+        try saveProfiles()
+        notifyProfilesDidChange()
     }
 
     private func backupCurrentConfig(reason: String) throws -> URL? {

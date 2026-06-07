@@ -3,6 +3,8 @@ import Foundation
 struct AuthSummary: Equatable {
     var accountID: String?
     var accountEmail: String?
+    var accountName: String?
+    var profileImageURL: String?
     var lastRefresh: String?
 
     var displayName: String {

@@ -5,6 +5,8 @@ struct AccountProfile: Codable, Identifiable, Equatable {
     var name: String
     var accountID: String?
     var accountEmail: String?
+    var accountName: String?
+    var codexProfileImageURL: String?
     var codexConfigProfileName: String?
     var avatarFileName: String?
     var avatarInitials: String?
@@ -18,6 +20,8 @@ struct AccountProfile: Codable, Identifiable, Equatable {
         name: String,
         accountID: String?,
         accountEmail: String?,
+        accountName: String? = nil,
+        codexProfileImageURL: String? = nil,
         codexConfigProfileName: String? = nil,
         avatarFileName: String? = nil,
         avatarInitials: String? = nil,
@@ -30,6 +34,8 @@ struct AccountProfile: Codable, Identifiable, Equatable {
         self.name = name
         self.accountID = accountID
         self.accountEmail = accountEmail
+        self.accountName = accountName
+        self.codexProfileImageURL = codexProfileImageURL
         self.codexConfigProfileName = codexConfigProfileName
         self.avatarFileName = avatarFileName
         self.avatarInitials = avatarInitials
@@ -44,6 +50,8 @@ struct AccountProfile: Codable, Identifiable, Equatable {
         case name
         case accountID
         case accountEmail
+        case accountName
+        case codexProfileImageURL
         case codexConfigProfileName
         case avatarFileName
         case avatarInitials
@@ -59,6 +67,8 @@ struct AccountProfile: Codable, Identifiable, Equatable {
         name = try container.decode(String.self, forKey: .name)
         accountID = try container.decodeIfPresent(String.self, forKey: .accountID)
         accountEmail = try container.decodeIfPresent(String.self, forKey: .accountEmail)
+        accountName = try container.decodeIfPresent(String.self, forKey: .accountName)
+        codexProfileImageURL = try container.decodeIfPresent(String.self, forKey: .codexProfileImageURL)
         codexConfigProfileName = try container.decodeIfPresent(String.self, forKey: .codexConfigProfileName)
         avatarFileName = try container.decodeIfPresent(String.self, forKey: .avatarFileName)
         avatarInitials = try container.decodeIfPresent(String.self, forKey: .avatarInitials)

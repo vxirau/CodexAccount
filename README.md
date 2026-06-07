@@ -76,9 +76,11 @@ open /Applications/CodexAccount.app
 1. Sign in to Codex Desktop with the first account.
 2. Open CodexAccount from the menu bar and choose `Manage Accounts...`.
 3. Capture the current account with a clear name, for example `Personal`.
-4. Use `Sign Out + Open Login` if Codex Desktop does not expose a logout button.
-   CodexAccount runs `codex logout` first, then falls back to removing the
-   file-backed auth snapshot if needed.
+4. Use `Prepare Login` to add another account. CodexAccount syncs the currently
+   active rotated auth tokens back into the saved profile, backs them up, removes
+   only the active file-backed auth snapshot, and opens Codex for login. It does
+   not run `codex logout`, because that can revoke refresh tokens needed for
+   switching back later.
 5. Sign in to Codex Desktop with the second account.
 6. Capture it as another profile, for example `Enterprise`.
 7. Switch later by clicking the CodexAccount menu bar icon and selecting the
@@ -133,8 +135,8 @@ The app does:
   selector when switching.
 - Write saved auth snapshots and backups under Application Support.
 - Quit and reopen Codex Desktop during switches when that setting is enabled.
-- Run `codex logout` during the explicit sign-out flow so Codex can clear its
-  configured credential backend.
+- Sync the active rotated auth snapshot back into the matching saved profile
+  before switching away or preparing a new login.
 - Run `codexbar usage --provider codex --source oauth --format json` after a
   switch when CodexBar is installed.
 
@@ -144,6 +146,7 @@ The app does not:
 - Delete local sessions, project metadata, or logs.
 - Modify Codex memories, plugins, MCP settings, or profile definitions.
 - Read or write macOS Keychain credentials.
+- Revoke Codex refresh tokens during normal account switching.
 - Store OpenAI passwords.
 - Require Accessibility, Screen Recording, or Full Disk Access permissions.
 
@@ -195,8 +198,8 @@ Generated assets and bundles are intentionally ignored:
 GitHub Actions builds the app on tag pushes matching `v*`.
 
 ```sh
-git tag v0.2.1
-git push origin v0.2.1
+git tag v0.2.2
+git push origin v0.2.2
 ```
 
 The workflow packages `dist/CodexAccount.app` as `CodexAccount.app.zip` and
